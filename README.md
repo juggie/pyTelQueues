@@ -1,4 +1,4 @@
-FAGIQueues
-==========
+FastAGIQueues
+=============
 
 FastAGI Queues
