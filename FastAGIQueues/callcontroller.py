@@ -27,7 +27,6 @@ class CallControllerThread(threading.Thread):
 		self._logger.Message('Subscribed to %s' % self._redis_global, 'CALLC')
 		for m in self._ps.listen():
 			if m['type'] == 'pmessage' or m['type'] == 'message':
-				#modify this to ensure it does not fail if json is invalid.
 				try:
 					message = json.loads(m['data'])
 				except (ValueError, UnboundLocalError):

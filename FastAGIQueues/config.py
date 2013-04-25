@@ -2,7 +2,7 @@
 import ConfigParser, platform
 
 class Config():
-	def __init__(self, logger, configfile = 'FAGIqueues.cfg'):
+	def __init__(self, logger, configfile = 'FastAGIQueues.cfg'):
 		#save logger object
 		self._logger = logger
 		

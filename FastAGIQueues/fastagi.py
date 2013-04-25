@@ -1,6 +1,6 @@
 import asyncore, asynchat, socket, redis, json, hashlib
 
-class FAGIServer(asyncore.dispatcher):
+class FastAGIServer(asyncore.dispatcher):
 	def __init__(self, logger, config):
 		asyncore.dispatcher.__init__(self)
 		#save logger object
