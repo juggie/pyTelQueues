@@ -12,7 +12,7 @@ class Logger():
 		self.Message('Logging thread started', 'LOGGER')
 
 	def Message(self, message, type, level = 0):
-		self._logger_queue.put({'message' : message, 'type' : type, 'level' : 0})
+		self._logger_queue.put({'message' : message, 'type' : type, 'level' : level})
 
 class LoggerThread(threading.Thread):
 	def __init__(self, logger_queue):
