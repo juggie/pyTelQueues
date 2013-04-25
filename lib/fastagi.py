@@ -5,21 +5,26 @@ class FAGIServer(asyncore.dispatcher):
 		asyncore.dispatcher.__init__(self)
 		#save logger object
 		self._logger = logger
+		#save config object
+		self._config = config
+		
+		#ready to go?
+		self._ready = False
 
 		#clients
 		self._clients = {}
 
-		#asynccore
-		self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
-		self.set_reuse_addr()
-		self.bind(("", config.fastagi_port))
-		self.listen(5)
-
 		#redis
 		self._redis_globalchannel = 'agiqueues.global'
-		self._redis_instance_channel = 'agiqueues.%s' % config.instancename #get instance name from config, default to hostname
+		self._redis_instance_channel = 'agiqueues.%s' % self._config.instancename #get instance name from config, default to hostname
 		self._redis = redis.StrictRedis(host='192.168.99.20', port=6379, db=0) #get redis server/port from config		
-		logger.Message('AGI Queue Server listening on port: %i' % config.fastagi_port, 'FASTAGI')
+
+    #asynccore
+		self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
+		self.set_reuse_addr()
+		self.bind(("", self._config.fastagi_port))
+		self.listen(5)
+		self._logger.Message('AGI Queue Server listening on port: %i' % self._config.fastagi_port, 'FASTAGI')		
 
 	def handle_accept(self):
 		pair = self.accept()
