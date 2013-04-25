@@ -42,4 +42,8 @@ class RedisSubscriberThread(threading.Thread):
 		for m in self._ps.listen():
 			if m['type'] == 'pmessage' or m['type'] == 'message':
 				#modify this to ensure it does not fail if json is invalid.
-				self._redissub_queue.append(json.loads(m['data']))
+				try:
+					self._redissub_queue.append(json.loads(m['data']))
+				except (ValueError, UnboundLocalError):
+					self._logger.Message('Invalid JSON request', 'RTHREAD')
+					continue

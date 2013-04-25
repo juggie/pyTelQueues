@@ -1,4 +1,4 @@
-import asyncore, asynchat, socket, redis, json
+import asyncore, asynchat, socket, redis, json, hashlib
 
 class FAGIServer(asyncore.dispatcher):
 	def __init__(self, logger, config):
@@ -7,9 +7,6 @@ class FAGIServer(asyncore.dispatcher):
 		self._logger = logger
 		#save config object
 		self._config = config
-		
-		#ready to go?
-		self._ready = False
 
 		#clients
 		self._clients = {}
@@ -64,7 +61,7 @@ class FAGIChannel(asynchat.async_chat):
 		self._agiserver = agiserver
 		
 		#set md5 id of connected client
-		self._clientMD5 = 'test' #hashlib.md5(str(addr)).hexdigest()
+		self._clientMD5 = hashlib.md5(str(addr)).hexdigest()
 
 		self._clients[self._clientMD5]=self
 
@@ -76,7 +73,7 @@ class FAGIChannel(asynchat.async_chat):
 		if event['event']=='answer':
 			self.AGI_Answer()
 		elif event['event']=='playback':
-			self.AGI_Playback() 
+			self.AGI_Playback(str(event['parameters'])) #confused as to why str() is necessairy 
 		elif event['event']=='mohon':
 			self.AGI_MusicOnHold(True) 
 		elif event['event']=='mohoff':

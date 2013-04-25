@@ -21,7 +21,6 @@ class CallControllerThread(threading.Thread):
 		self._call_state = {}
 		
 	
-	#add code to fire off events into a queue to be serviced
 	def run(self):
 		self._ps.psubscribe([self._redis_global])
 		self._logger.Message('Call Controller thread starting', 'CALLC')
@@ -29,7 +28,12 @@ class CallControllerThread(threading.Thread):
 		for m in self._ps.listen():
 			if m['type'] == 'pmessage' or m['type'] == 'message':
 				#modify this to ensure it does not fail if json is invalid.
-				message = json.loads(m['data'])
+				try:
+					message = json.loads(m['data'])
+				except (ValueError, UnboundLocalError):
+					self._logger.Message('Invalid JSON request', 'CALLC')
+					continue
+				
 				self._logger.Message('Event: %s, ClientMD5: %s, Instance Channel: %s' % (message['event'], message['clientMD5'], message['instance_channel']), 'CALLC')
 				if message['event'] == 'ring':
 					self._call_state[message['clientMD5']]=[]

@@ -7,12 +7,14 @@ from lib.config import Config
 from lib.logger import Logger
 from lib.redissubscriber import RedisSubscriber
 from lib.fastagi import FAGIServer
+from lib.callcontroller import CallController
 
 if __name__=="__main__":
 	logger = Logger()
 	config = Config(logger)
 	redissub = RedisSubscriber(logger, config)
 	fagiserver = FAGIServer(logger, config)
+	callcontroller = CallController(logger, config)
 
 	try:
 		while True:
