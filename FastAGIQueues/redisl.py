@@ -34,7 +34,7 @@ class Redis():
 		return event
 
 	def subscriber_pop(self, id):
-		try: 
+		try:
 			event = self._sub_queue[id].get()
 		except (KeyError):
 			return False
@@ -42,7 +42,7 @@ class Redis():
 
 
 	def _getId(self):
-		return hashlib.md5('%s' % datetime.datetime.now()).hexdigest() 
+		return hashlib.md5('%s' % datetime.datetime.now()).hexdigest()
 
 	def publish(self, channel, event):
 		self._redis.publish(channel, event)
@@ -75,7 +75,7 @@ class RedisSubscriberThread(threading.Thread):
 		self._firstloop = False
 
 		for m in self._ps.listen():
-			if self._firstloop == False: 
+			if self._firstloop == False:
 				self._firstloop = True
 				self._intmessaging_ready.set()
 			if m['type'] == 'message' or m['type'] == 'pmessage':
@@ -85,13 +85,13 @@ class RedisSubscriberThread(threading.Thread):
 					self._logger.Message('Invalid json message', 'REDIS')
 					continue
 
-				if 'subscribe' in data:			
+				if 'subscribe' in data:
 					self.subscribe(data['subscribe'], data['id'], data['pattern'])
 				elif 'unsubscribe' in data:
 					self.unsubscribe(data['unsubscribe'], data['id'], data['pattern'])
 				else: #data, fixme, cant use ID
 					if m['pattern'] == None:
-						channel=m['channel']						
+						channel=m['channel']
 					else:
 						channel=m['pattern']
 

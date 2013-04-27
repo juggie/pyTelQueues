@@ -10,7 +10,7 @@ class CallController():
 		self._callcontroller_thread = CallControllerThread(self._logger, self._config, self._redis)
 		self._callcontroller_thread.daemon = True;
 		self._callcontroller_thread.start()
-		
+
 		self._logger.Message('Call controller started', 'CALLC')
 
 class CallControllerThread(threading.Thread):
@@ -30,7 +30,6 @@ class CallControllerThread(threading.Thread):
 		while True:
 			message = self._redis.subscriber_pop(self._redis_subid)
 			if message == False:
-				self._logger.Message('false', 'CALLC')
 				continue
 			self._logger.Message('Event: %s, ClientMD5: %s, Instance Channel: %s' % (message['event'], message['clientMD5'], message['instance_channel']), 'CALLC')
 			if message['event'] == 'ring':
@@ -47,4 +46,4 @@ class CallControllerThread(threading.Thread):
 					self._redis.publish(message['instance_channel'], json.dumps({'event' : 'hangup', 'clientMD5' : message['clientMD5']}))
 					self._call_state[message['clientMD5']]=3
 				else:
-					pass			
+					pass

@@ -5,7 +5,7 @@ class Config():
 	def __init__(self, logger, configfile = 'FastAGIQueues.cfg'):
 		#store class input
 		self._logger, self._configfile = (logger, configfile)
-		
+
 		self._config = ConfigParser.ConfigParser()
 		self._config.read(self._configfile)
 		self.fastagi_port = self.read_config_var('fastagi', 'port', 4573, 'int')
@@ -15,11 +15,11 @@ class Config():
 		self.redisport = self.read_config_var('global', 'redisport', 6379, 'int')
 
 		logger.Message('Config loaded', 'CONFIG')
-		
+
 	def defaulting(self, section, variable, default, quiet = False):
 		if quiet == False:
 			self._logger.Message(str(variable) + ' not set in ['+str(section)+'] defaulting to: \''+str(default)+'\'', 'CONFIG')
-		
+
 	def read_config_var(self, section, variable, default, type = 'str', quiet = False):
 		try:
 			if type == 'str':
