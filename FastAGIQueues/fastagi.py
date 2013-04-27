@@ -1,27 +1,26 @@
-import asyncore, asynchat, socket, redis, json, hashlib
+import asyncore, asynchat, socket, json, hashlib
 
 class FastAGIServer(asyncore.dispatcher):
-	def __init__(self, logger, config):
+	def __init__(self, logger, config, redis):
 		asyncore.dispatcher.__init__(self)
-		#save logger object
-		self._logger = logger
-		#save config object
-		self._config = config
+		#store class input
+		self._logger, self._config, self._redis = (logger, config, redis)
 
 		#clients
 		self._clients = {}
 
-		#redis
-		self._redis_globalchannel = 'agiqueues.global'
-		self._redis_instance_channel = 'agiqueues.%s' % self._config.instancename #get instance name from config, default to hostname
-		self._redis = redis.StrictRedis(host='192.168.99.20', port=6379, db=0) #get redis server/port from config		
-
-    #asynccore
+		#asynccore
 		self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.set_reuse_addr()
 		self.bind(("", self._config.fastagi_port))
 		self.listen(5)
 		self._logger.Message('AGI Queue Server listening on port: %i' % self._config.fastagi_port, 'FASTAGI')		
+
+		#redis
+		self._redis_subid = self._redis.subscribe(config.redisinstancechannel) #return subid to main for loop
+
+	def subid(self):
+		return self._redis_subid
 
 	def handle_accept(self):
 		pair = self.accept()
@@ -29,7 +28,7 @@ class FastAGIServer(asyncore.dispatcher):
 			pass
 		else:
 			sock, addr = pair
-			handler = FAGIChannel(self, sock, addr, self._logger, self._clients)
+			handler = FAGIChannel(sock, addr, self._logger, self._clients, self._redis, self._config)
 	
 	def numclients(self):
 		return len(self)
@@ -38,12 +37,9 @@ class FastAGIServer(asyncore.dispatcher):
 		return self._clients[clientMD5]
 
 class FAGIChannel(asynchat.async_chat):
-	def __init__(self, agiserver, sock, addr, logger, clients):
-		#save logger object
-		self._logger = logger
-		
-		#save clients object
-		self._clients = clients
+	def __init__(self, sock, addr, logger, clients, redis, config):
+		#store class input
+		self._logger, self._clients, self._redis, self._config = (logger, clients, redis, config)
 		
 		asynchat.async_chat.__init__(self, sock)
 		#fagi terminator
@@ -56,9 +52,6 @@ class FAGIChannel(asynchat.async_chat):
 		self._connected = False
 		#is moh enabled
 		self._moh = False
-		
-		#set the parent class name
-		self._agiserver = agiserver
 		
 		#set md5 id of connected client
 		self._clientMD5 = hashlib.md5(str(addr)).hexdigest()
@@ -82,9 +75,9 @@ class FAGIChannel(asynchat.async_chat):
 			self.AGI_Hangup() 
 
 	def send_redis_event(self, event):
-		tosend = json.dumps({'event' : event, 'clientMD5' : self._clientMD5,'instance_channel' : self._agiserver._redis_instance_channel})
-		self._agiserver._redis.publish(self._agiserver._redis_globalchannel, tosend)
-		self._logger.Message('Sent %s on channel: %s' % (tosend, self._agiserver._redis_globalchannel), 'REDIS')
+		tosend = json.dumps({'event' : event, 'clientMD5' : self._clientMD5,'instance_channel' : self._config.redisinstancechannel})
+		self._redis.publish(self._config.redisglobalchannel, tosend) #move to config
+		self._logger.Message('Sent %s on channel: %s' % (tosend, self._config.redisglobalchannel), 'REDIS') #move to config
 
 	def send_command(self, data):
 		self._logger.Message('SENT: %s' % data, 'AGI')
@@ -151,4 +144,3 @@ class FAGIChannel(asynchat.async_chat):
 
 	def AGI_Hangup(self):
 		self.send_command('HANGUP')
-		

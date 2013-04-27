@@ -1,24 +1,27 @@
 ## AGI Queues
 ## donnyk@gmail.com
-import time, asyncore
+import time, asyncore, sys, json
 
 #app level imports
 from FastAGIQueues.config import Config
 from FastAGIQueues.logger import Logger
-from FastAGIQueues.redissubscriber import RedisSubscriber
+from FastAGIQueues.redisl import Redis
 from FastAGIQueues.fastagi import FastAGIServer
 from FastAGIQueues.callcontroller import CallController
 
 if __name__=="__main__":
 	logger = Logger()
 	config = Config(logger)
-	redissub = RedisSubscriber(logger, config)
-	fastagiserver = FastAGIServer(logger, config)
-	callcontroller = CallController(logger, config)
+	redis = Redis(logger, config)
+	
+	fastagiserver = FastAGIServer(logger, config, redis)
+	subid = fastagiserver.subid()
+	
+	callcontroller = CallController(logger, config, redis)
 
 	try:
 		while True:
-			redisevent = redissub.pop()
+			redisevent = redis.subscriber_pop_nowait(subid)
 			if redisevent != False:
 				#fire the received redis event into fastagi.. huzzah
 				try:

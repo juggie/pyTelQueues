@@ -3,17 +3,22 @@ import ConfigParser, platform
 
 class Config():
 	def __init__(self, logger, configfile = 'FastAGIQueues.cfg'):
-		#save logger object
-		self._logger = logger
+		#store class input
+		self._logger, self._configfile = (logger, configfile)
 		
 		self._config = ConfigParser.ConfigParser()
-		self._config.read(configfile)
+		self._config.read(self._configfile)
 		self.fastagi_port = self.read_config_var('fastagi', 'port', 4573, 'int')
-		self.instancename = self.read_config_var('global', 'instancename', platform.node(), 'str') #platform.node gets hostname
+		self.redisinstancechannel = self.read_config_var('redis', 'instancechannel', 'agiqueues.%s' % platform.node(), 'str')
+		self.redisglobalchannel = self.read_config_var('redis', 'globalchannel', 'agiqueues.global', 'str')
+		self.redisip = self.read_config_var('global', 'redisip', '192.168.99.20', 'str') #should be localhost 
+		self.redisport = self.read_config_var('global', 'redisport', 6379, 'int')
 
+		logger.Message('Config loaded', 'CONFIG')
+		
 	def defaulting(self, section, variable, default, quiet = False):
 		if quiet == False:
-			self._logger.Message(str(variable) + ' not set in ['+str(section)+'] defaulting to: \''+str(default)+'\'', 'Config')
+			self._logger.Message(str(variable) + ' not set in ['+str(section)+'] defaulting to: \''+str(default)+'\'', 'CONFIG')
 		
 	def read_config_var(self, section, variable, default, type = 'str', quiet = False):
 		try:
