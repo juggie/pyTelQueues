@@ -2,23 +2,19 @@
 import ConfigParser, platform
 
 class Config():
-    def __init__(self, logger, configfile = 'FastAGIQueues.cfg'):
-        #store class input
-        self._logger, self._configfile = (logger, configfile)
+    def __init__(self, pytelqueues, configfile = 'pyTelQueues.cfg'):
+        self._pytelqueues, self._configfile = (pytelqueues, configfile)
 
         self._config = ConfigParser.ConfigParser()
         self._config.read(self._configfile)
         self.fastagi_port = self.read_config_var('fastagi', 'port', 4573, 'int')
-        self.redisinstancechannel = self.read_config_var('redis', 'instancechannel', 'agiqueues.%s' % platform.node(), 'str')
-        self.redisglobalchannel = self.read_config_var('redis', 'globalchannel', 'agiqueues.global', 'str')
-        self.redisip = self.read_config_var('global', 'redisip', '192.168.99.20', 'str') #should be localhost 
-        self.redisport = self.read_config_var('global', 'redisport', 6379, 'int')
-
-        logger.Message('Config loaded', 'CONFIG')
+        self.redishost = self.read_config_var('redis', 'host', '127.0.0.1', 'str') #should be localhost 
+        self.redisport = self.read_config_var('redis', 'port', 6379, 'int')
+        self._pytelqueues.logger().Message('Config loaded', 'CONFIG')
 
     def defaulting(self, section, variable, default, quiet = False):
         if quiet == False:
-            self._logger.Message(str(variable) + ' not set in ['+str(section)+'] defaulting to: \''+str(default)+'\'', 'CONFIG')
+            self._pytelqueues.logger().Message('%s not set in [%s] defaulting to: \'%s\'' % (variable, section, default), 'CONFIG')
 
     def read_config_var(self, section, variable, default, type = 'str', quiet = False):
         try:

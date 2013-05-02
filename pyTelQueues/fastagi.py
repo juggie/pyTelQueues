@@ -1,10 +1,10 @@
 import asyncore, asynchat, socket, json, hashlib
 
 class FastAGIServer(asyncore.dispatcher):
-    def __init__(self, logger, config, redis):
+    def __init__(self, pytelqueues):
         asyncore.dispatcher.__init__(self)
         #store class input
-        self._logger, self._config, self._redis = (logger, config, redis)
+        self._pytelqueues = pytelqueues
 
         #clients
         self._clients = {}
@@ -12,15 +12,10 @@ class FastAGIServer(asyncore.dispatcher):
         #asynccore
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
         self.set_reuse_addr()
-        self.bind(("", self._config.fastagi_port))
+        self.bind(("", self._pytelqueues.config().fastagi_port))
         self.listen(5)
-        self._logger.Message('AGI Queue Server listening on port: %i' % self._config.fastagi_port, 'FASTAGI')
-
-        #redis
-        self._redis_subid = self._redis.subscribe(config.redisinstancechannel) #return subid to main for loop
-
-    def subid(self):
-        return self._redis_subid
+        self._pytelqueues.logger().Message('FASTAGI thread started', 'FASTAGI')
+        self._pytelqueues.logger().Message('AGI Queue Server listening on port: %i' % self._pytelqueues.config().fastagi_port, 'FASTAGI')
 
     def handle_accept(self):
         pair = self.accept()
@@ -28,18 +23,18 @@ class FastAGIServer(asyncore.dispatcher):
             pass
         else:
             sock, addr = pair
-            handler = FAGIChannel(sock, addr, self._logger, self._clients, self._redis, self._config)
+            handler = FAGIChannel(sock, addr, self._pytelqueues, self._clients)
 
     def numclients(self):
-        return len(self)
+        return len(self._clients)
 
     def getclient(self, clientMD5):
         return self._clients[clientMD5]
 
 class FAGIChannel(asynchat.async_chat):
-    def __init__(self, sock, addr, logger, clients, redis, config):
+    def __init__(self, sock, addr, pytelqueues, clients):
         #store class input
-        self._logger, self._clients, self._redis, self._config = (logger, clients, redis, config)
+        self._pytelqueues, self._clients = (pytelqueues, clients)
 
         asynchat.async_chat.__init__(self, sock)
         #fagi terminator
@@ -58,11 +53,10 @@ class FAGIChannel(asynchat.async_chat):
 
         self._clients[self._clientMD5]=self
 
-        logger.Message('Incoming FastAGI connection from %s' % repr(addr), 'FASTAGI')
-        #logger.Message('%i Connected FastAGI sessions' % len(CONNECTEDCLIENTS), 'FASTAGI')
+        self._pytelqueues.logger().Message('Incoming FastAGI connection from %s' % repr(addr), 'FASTAGI')
 
-    def handle_redis_event(self, event):
-        self._logger.Message('Event %s' % event, 'REDIS')
+    def handle_callcontroller_event(self, event):
+        self._pytelqueues.logger().Message('Event %s' % event, 'FASTAGI')
         if event['event']=='answer':
             self.AGI_Answer()
         elif event['event']=='playback':
@@ -74,13 +68,13 @@ class FAGIChannel(asynchat.async_chat):
         elif event['event']=='hangup':
             self.AGI_Hangup()
 
-    def send_redis_event(self, event):
-        tosend = json.dumps({'event' : event, 'clientMD5' : self._clientMD5,'instance_channel' : self._config.redisinstancechannel})
-        self._redis.publish(self._config.redisglobalchannel, tosend) #move to config
-        self._logger.Message('Sent %s on channel: %s' % (tosend, self._config.redisglobalchannel), 'REDIS') #move to config
+    def send_callcontroller_event(self, event):
+        tosend = {'event' : event, 'clientMD5' : self._clientMD5, 'channeltype' : 'fastagi'}
+        self._pytelqueues.callcontroller().put(tosend)
+        self._pytelqueues.logger().Message('Sent %s to call controller' % tosend, 'FASTAGI')
 
     def send_command(self, data):
-        self._logger.Message('SENT: %s' % data, 'AGI')
+        self._pytelqueues.logger().Message('SENT: %s' % data, 'AGI')
         self.push(data+'\n')
 
     def collect_incoming_data(self, data):
@@ -96,37 +90,37 @@ class FAGIChannel(asynchat.async_chat):
         if self._connected == False:
             if line == '':
                 self._connected = True
-                self._logger.Message('Initial Variables Received', 'AGI')
-                self.send_redis_event('ring')
+                self._pytelqueues.logger().Message('Initial Variables Received', 'AGI')
+                self.send_callcontroller_event('ring')
             else:
-                self._logger.Message('Variable -> %s' % line, 'AGI')
+                self._pytelqueues.logger().Message('Variable -> %s' % line, 'AGI')
         else:
-            self._logger.Message('Received %s' % line, 'AGI')
+            self._pytelqueues.logger().Message('Received %s' % line, 'AGI')
             self.HandleCall(line)
 
     def handle_close(self):
-        self._logger.Message('FastAGI connection from %s closed' % self._straddr, 'AGI')
+        self._pytelqueues.logger().Message('FastAGI connection from %s closed' % self._straddr, 'AGI')
         if self._clientMD5 in self._clients: del self._clients[self._clientMD5]
         self.close()
 
     def handle_errorr(self):
-        self._logger.Message('ERROR: FastAGI connection from %s closed' % self._straddr, 'AGI')
+        self._pytelqueues.logger().Message('ERROR: FastAGI connection from %s closed' % self._straddr, 'AGI')
         if self._clientMD5 in self._clients: del self._clients[self._clientMD5]
         self.close()
 
     #parsing of agi responses goes here
     def HandleCall(self,line):
         if line[:3] == '200':
-            self.send_redis_event('ok')
+            self.send_callcontroller_event('ok')
         elif line[:3] == '510':
-            self.send_redis_event('invalid')
+            self.send_callcontroller_event('invalid')
         elif line[:3] == '511':
-            self.send_redis_event('dead')
+            self.send_callcontroller_event('dead')
         elif line == 'HANGUP':
-            self.send_redis_event('hangup')
+            self.send_callcontroller_event('hangup')
             self.handle_close()
         else:
-            self._logger.Message('Unknown event: %s' % line, 'AGI')
+            self._pytelqueues.logger().Message('Unknown event: %s' % line, 'AGI')
 
     def AGI_Answer(self):
         self.send_command('ANSWER')
