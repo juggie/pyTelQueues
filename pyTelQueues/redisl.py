@@ -1,8 +1,10 @@
 #Redis Thread
 #Does not handle multiple subscriptions to the same queue name
 import threading, redis, platform, json, Queue, datetime, hashlib
+import logging
 
 class Redis():
+    log = logging.getLogger('Redis')
     def __init__(self):
         #message queue
         self._sub_queue = {}
@@ -18,7 +20,7 @@ class Redis():
         #redis connection for lib
         #TODO: move parameters to config, also missing is catching errors
         self._redis = redis.StrictRedis(host=Globals.config.redishost, port=Globals.config.redisport, db=0)
-        Globals.logger('Connected to redis', 'REDIS')
+        self.log.debug('Connected to redis')
 
         self._sub_thread = RedisSubscriberThread(self._sub_queue, Globals.config, self._intmessaging, self._intmessaging_ready, self._channelmap)
         self._sub_thread.daemon = True;
@@ -59,7 +61,7 @@ class RedisSubscriberThread(threading.Thread):
         self._sub_queue, Globals.config, self._intmessaging, self._intmessaging_ready, self._channelmap = (sub_queue, config, intmessaging, intmessagingready, channelmap)
 
     def run(self):
-        Globals.logger('Redis subscriber thread started', 'REDIS')
+        self.log.debug('Redis subscriber thread started')
 
         #set up redis
         self._redis = redis.StrictRedis(host=Globals.config.redishost, port=Globals.config.redisport, db=0)
@@ -77,7 +79,7 @@ class RedisSubscriberThread(threading.Thread):
                 try:
                     data = json.loads(m['data'])
                 except ValueError:
-                    Globals.logger('Invalid json message', 'REDIS')
+                    self.log.debug('Invalid json message')
                     continue
 
                 if 'subscribe' in data:
@@ -93,7 +95,7 @@ class RedisSubscriberThread(threading.Thread):
                     try:
                         self._sub_queue[self._channelmap[channel]].put_nowait(data)
                     except KeyError:
-                        Globals.logger('No queue for ID: %s' % data['id'], 'REDIS')
+                        self.log.debug('No queue for ID: %s' % data['id'])
 
     def subscribe(self, channel, id, pattern = False):
         #implement parsing a channel list to properly build our mapping
@@ -103,7 +105,7 @@ class RedisSubscriberThread(threading.Thread):
             self._ps.subscribe(channel)
         self._sub_queue[id] = Queue.Queue()
         self._channelmap[channel]=id
-        Globals.logger('ID: %s Subscribed to: %s' % (id, channel), 'REDIS')
+        self.log.debug('ID: %s Subscribed to: %s' % (id, channel))
 
     def unsubscribe(self, channel, id, pattern = False):
         if pattern:
@@ -112,4 +114,4 @@ class RedisSubscriberThread(threading.Thread):
             self._ps.unsubscribe(channel)
         if id in self._sub_queue: del self._sub_queue[id]
         if channel in self._channelmap: del self._channelmap[channel]
-        Globals.logger('ID: %s Unsubscribed from: %s' % (id, channel), 'REDIS')
+        self.log.debug('ID: %s Unsubscribed from: %s' % (id, channel))

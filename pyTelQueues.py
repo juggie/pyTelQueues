@@ -7,11 +7,14 @@
 ## must be applied where necessairy.
 
 import time #add wrapper for input
+import logging
 
 #app level imports
 from pyTelQueues.pytelqueues import pyTelQueues
 
 if __name__=="__main__":
+    log = logging.getLogger('Main')
+    logging.basicConfig(level=logging.DEBUG)
     #pytelqueues core object
     pytelqueues = pyTelQueues()
 
@@ -21,4 +24,4 @@ if __name__=="__main__":
         while True:
             time.sleep(0.5)
     except KeyboardInterrupt:
-        pytelqueues.logger().Message("Crtl+C pressed. Shutting down.", 'CORE')
+        log.debug("Crtl+C pressed. Shutting down.")

@@ -1,4 +1,5 @@
 import threading, time, asyncore, Queue
+import logging
 
 from pyTelQueues.fastagi import FastAGIServer #move to telephony
 
@@ -30,12 +31,14 @@ class TelephonyServer():
 
 #telephony thread, we are going to loop here.
 class TelephonyServerThread(threading.Thread):
+    log = logging.getLogger('TelephonyServerThread')
+
     def __init__(self, pytelqueues):
         threading.Thread.__init__(self)
         self._pytelqueues = pytelqueues
 
     def run(self):
-        self._pytelqueues.logger().Message('Telephony Thread started', 'TELT')
+        self.log.debug('Telephony Thread started')
 
         #fastagi
         self._fastagiserver = FastAGIServer(self._pytelqueues)
@@ -47,10 +50,11 @@ class TelephonyServerThread(threading.Thread):
             if event != False:
                 #fire the received event into the telephony core
                 try:
-                    self._pytelqueues.logger().Message('Fire event into %s' % event['channeltype'], 'TELT')
+                    self.log.debug('Fire event into %s' % event['channeltype'])
                     self._pytelqueues.telephonyserver().getthread(event['channeltype']).getclient(event['clientMD5']).handle_callcontroller_event(event)
                 except KeyError:
-                    self._pytelqueues.logger().Message("Received event for a non-existant channel or channeltype", 'CORE')
+                    self.log.debug(
+                        "Received event for a non-existant channel")
 
             #poll asyncore
             asyncore.loop(timeout=0.001, count=1)
