@@ -1,6 +1,9 @@
 import asyncore, asynchat, socket, json, hashlib
+import logging
 
 class FastAGIServer(asyncore.dispatcher):
+    log = logging.getLogger('FastAGIServer')
+
     def __init__(self, pytelqueues):
         asyncore.dispatcher.__init__(self)
         #store class input
@@ -14,8 +17,9 @@ class FastAGIServer(asyncore.dispatcher):
         self.set_reuse_addr()
         self.bind(("", self._pytelqueues.config().fastagi_port))
         self.listen(5)
-        self._pytelqueues.logger().Message('FASTAGI thread started', 'FASTAGI')
-        self._pytelqueues.logger().Message('AGI Queue Server listening on port: %i' % self._pytelqueues.config().fastagi_port, 'FASTAGI')
+        self.log.debug('FASTAGI thread started')
+        self.log.debug('AGI Queue Server listening on port: %i' %
+                self._pytelqueues.config().fastagi_port)
 
     def handle_accept(self):
         pair = self.accept()
@@ -32,6 +36,8 @@ class FastAGIServer(asyncore.dispatcher):
         return self._clients[clientMD5]
 
 class FAGIChannel(asynchat.async_chat):
+    log = logging.getLogger('FAGIChannel')
+
     def __init__(self, sock, addr, pytelqueues, clients):
         #store class input
         self._pytelqueues, self._clients = (pytelqueues, clients)
@@ -53,10 +59,10 @@ class FAGIChannel(asynchat.async_chat):
 
         self._clients[self._clientMD5]=self
 
-        self._pytelqueues.logger().Message('Incoming FastAGI connection from %s' % repr(addr), 'FASTAGI')
+        self.log.debug('Incoming FastAGI connection from %s' % repr(addr))
 
     def handle_callcontroller_event(self, event):
-        self._pytelqueues.logger().Message('Event %s' % event, 'FASTAGI')
+        self.log.debug('Event %s' % event)
         if event['event']=='answer':
             self.AGI_Answer()
         elif event['event']=='playback':
@@ -71,10 +77,10 @@ class FAGIChannel(asynchat.async_chat):
     def send_callcontroller_event(self, event):
         tosend = {'event' : event, 'clientMD5' : self._clientMD5, 'channeltype' : 'fastagi'}
         self._pytelqueues.callcontroller().put(tosend)
-        self._pytelqueues.logger().Message('Sent %s to call controller' % tosend, 'FASTAGI')
+        self.log.debug('Sent %s to call controller' % tosend)
 
     def send_command(self, data):
-        self._pytelqueues.logger().Message('SENT: %s' % data, 'AGI')
+        self.log.debug('SENT: %s' % data)
         self.push(data+'\n')
 
     def collect_incoming_data(self, data):
@@ -90,21 +96,21 @@ class FAGIChannel(asynchat.async_chat):
         if self._connected == False:
             if line == '':
                 self._connected = True
-                self._pytelqueues.logger().Message('Initial Variables Received', 'AGI')
+                self.log.debug('Initial Variables Received')
                 self.send_callcontroller_event('ring')
             else:
-                self._pytelqueues.logger().Message('Variable -> %s' % line, 'AGI')
+                self.log.debug('Variable -> %s' % line)
         else:
-            self._pytelqueues.logger().Message('Received %s' % line, 'AGI')
+            self.log.debug('Received %s' % line)
             self.HandleCall(line)
 
     def handle_close(self):
-        self._pytelqueues.logger().Message('FastAGI connection from %s closed' % self._straddr, 'AGI')
+        self.log.debug('FastAGI connection from %s closed' % self._straddr)
         if self._clientMD5 in self._clients: del self._clients[self._clientMD5]
         self.close()
 
     def handle_errorr(self):
-        self._pytelqueues.logger().Message('ERROR: FastAGI connection from %s closed' % self._straddr, 'AGI')
+        self.log.error('FastAGI connection from %s closed' % self._straddr)
         if self._clientMD5 in self._clients: del self._clients[self._clientMD5]
         self.close()
 
@@ -120,7 +126,7 @@ class FAGIChannel(asynchat.async_chat):
             self.send_callcontroller_event('hangup')
             self.handle_close()
         else:
-            self._pytelqueues.logger().Message('Unknown event: %s' % line, 'AGI')
+            self.log.debug('Unknown event: %s' % line)
 
     def AGI_Answer(self):
         self.send_command('ANSWER')

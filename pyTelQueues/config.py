@@ -1,7 +1,10 @@
 #Config
 import ConfigParser, platform
+import logging
 
 class Config():
+    log = logging.getLogger('Config')
+
     def __init__(self, pytelqueues, configfile = 'pyTelQueues.cfg'):
         self._pytelqueues, self._configfile = (pytelqueues, configfile)
 
@@ -10,11 +13,12 @@ class Config():
         self.fastagi_port = self.read_config_var('fastagi', 'port', 4573, 'int')
         self.redishost = self.read_config_var('redis', 'host', '127.0.0.1', 'str') #should be localhost 
         self.redisport = self.read_config_var('redis', 'port', 6379, 'int')
-        self._pytelqueues.logger().Message('Config loaded', 'CONFIG')
+        self.log.debug('Config loaded')
 
     def defaulting(self, section, variable, default, quiet = False):
         if quiet == False:
-            self._pytelqueues.logger().Message('%s not set in [%s] defaulting to: \'%s\'' % (variable, section, default), 'CONFIG')
+            self.log.debug("%s not set in [%s] defaulting to: %s" %
+                    (variable, section, default))
 
     def read_config_var(self, section, variable, default, type = 'str', quiet = False):
         try:
